@@ -171,14 +171,31 @@ Describe only observable contracts and side effects.
 ⸻
 
 ## 6. Updated Output Result
-
-The improved summary:
-• Clearly labels assumptions
-• Uses UNKNOWN instead of guessing
-• Explicitly documents side effects
-• Separates verified facts from interpretation
-
-Summaries became more precise, transparent, and trustworthy.
+Function: start_sweeper
+Starts a background thread that removes expired sessions.
+Side effects: mutates \_SESSIONS, emits telemetry events, starts a daemon thread.
+ASSUMPTION: Intended to be called once at startup.
+UNKNOWN: Whether sweep interval is configurable beyond the parameter.
+Function: create_session
+Creates a session record and returns a signed token.
+Side effects: writes to \_SESSIONS, increments counters, records events.
+ASSUMPTION: Duplicate session IDs overwrite old sessions.
+UNKNOWN: Constraints on TTL values.
+Function: validate_token
+Validates token signature and expiration and returns user ID if valid.
+Side effects: reads \_SESSIONS, emits failure events and counters.
+ASSUMPTION: Token format matches create_session output.
+UNKNOWN: Whether failure types are externally distinguishable.
+Function: save_to_disk
+Writes session store to disk as JSON.
+Side effects: file I/O and telemetry logging.
+ASSUMPTION: Existing files are overwritten.
+UNKNOWN: Handling of serialization edge cases.
+Function: load_from_disk
+Loads session data from disk and replaces in-memory store.
+Side effects: file I/O and telemetry logging.
+ASSUMPTION: JSON structure matches expected format.
+UNKNOWN: Behavior on malformed JSON.
 
 ## Problem B — Counterexample to Guideline 6 (Repository-Level Planning)
 
@@ -243,12 +260,15 @@ Use UNKNOWN where evidence is missing.
 ⸻
 
 ## 6. Updated Output Result
+Repository contains Python modules:
+• app.py imports and calls functions from session_store.py
+• session_store.py imports from crypto_utils.py and telemetry.py
 
-The improved plan:
-• Avoids speculative architecture
-• Uses UNKNOWN appropriately
-• Bases relationships on observable imports
-• Improves accuracy and developer trust
+Role of session_store.py:
+Provides session creation, validation, and persistence utilities used by app.py.
+
+Data flow:
+app.py → session_store.py → crypto_utils.py / telemetry.py → disk
 
 ```
 
